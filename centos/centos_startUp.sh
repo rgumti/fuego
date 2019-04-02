@@ -1,10 +1,29 @@
 #!/bin/bash
 #Authored by fresco
+#Version 0.1.1
 
+realName=$(host `hostname -i`  | cut -d' ' -f 5 |sed 's/.$//')
+ipAddress=(`hostname -i`)
+
+echo '
+=====================================
+= Setting Hostname According to DNS =
+=====================================
+'
+hostnamectl set-hostname $realName
+
+echo "Hostname set to $realName with IP: $ipAddress"
+
+echo '
+
+=============================
+= Starting Package Install  =
+=============================
+'
 #install the necessarry packages:
-yum update -y && yum install sssd realmd oddjob oddjob-mkhomedir adcli samba-common samba-common-tools krb5-workstation openldap-clients policycoreutils-python ntp nfs-utils autofs ncdu iftop telnet -y
+yum update -y && yum install sssd realmd oddjob oddjob-mkhomedir adcli samba-common samba-common-tools krb5-workstation openldap-clients policycoreutils-python ntp nfs-utils autofs pam_krb5 telnet -y
 
-#disable firewall, selinux & cloud-init
+#disable firewall & selinux
 systemctl stop firewalld
 systemctl disable firewalld
 systemctl mask --now firewalld
@@ -12,11 +31,18 @@ systemctl mask --now firewalld
 echo '
 SELINUX=disabled
 SELINUXTYPE=targeted
-' > /etc/selinux/config 
+' > /etc/selinux/config
 
-touch /etc/cloud/cloud-init.disabled
+
 
 #add mounts:
+echo '
+
+=================
+= Adding Mounts =
+=================
+'
+
 mkdir /net
 mkdir /evo
 
@@ -29,7 +55,14 @@ mount -av
 df -h /net
 df -h /evo
 
+
 #update ntp
+echo '
+
+==============================
+= Configuring NTP & Timezone =
+==============================
+'
 
 timedatectl set-timezone America/New_York
 
@@ -37,7 +70,7 @@ echo 'driftfile /var/lib/ntp/drift
 
 restrict default nomodify notrap nopeer noquery
 
-restrict 127.0.0.1 
+restrict 127.0.0.1
 restrict ::1
 
 includefile /etc/ntp/crypto/pw
@@ -49,43 +82,36 @@ server 17.17.0.5
 server 17.17.0.4
 ' > /etc/ntp.conf
 
-#updated Samba Config:
-echo '====================
-      =Configuring Samba =
-      ===================='
-
-echo '
-[global]
-        workgroup = VIVA
-        security = ads
-        realm= VIVA.LOCAL
-        kerberos method = secrets and keytab
-        client signing = yes
-        client use spnego = yes
-'
-
 service ntpd restart
 
-service realmd restart
+#domain Join
+echo '
 
-#join the viva.local domain
-echo '=================
-      =Joining Domain =
-      ================='
-net ads join -S VIVA-DOM -U Administrator%PASSWORD
+==========================
+= Attempting Domain Join =
+=========================='
+
+
+echo -n '<PASSWORD>' | adcli join viva.local -U Administrator --stdin-password
+
+
+realm list
+
+
+
 
 
 #update krb5.conf
-echo '=======================
-      =Configuring Kerberos =
-      =======================
-      '
-echo 'includedir /etc/krb5.conf.d/
 
-[logging]
+echo '
+
+=====================
+= Editing krb5.conf =
+=====================
+'
+
+echo '[logging]
  default = FILE:/var/log/krb5libs.log
- kdc = FILE:/var/log/krb5kdc.log
- admin_server = FILE:/var/log/kadmind.log
 
 [libdefaults]
  default_realm = VIVA.LOCAL
@@ -96,89 +122,69 @@ echo 'includedir /etc/krb5.conf.d/
  rdns = false
  forwardable = yes
 
+ VIVA.LOCAL = {
+ }
+
 [domain_realm]
  viva.local = VIVA.LOCAL
  .viva.local = VIVA.LOCAL' > /etc/krb5.conf
 
 #update nswitch.conf
-echo 'passwd:     files sss
-shadow:     files sss
-group:      files sss
+echo '
+=====================
+= Updating nsSWITCH =
+=====================
+'
+authconfig --enablesssd --enablesssdauth --enablemkhomedir --update
 
-hosts:      files dns myhostname
-
-bootparams: nisplus [NOTFOUND=return] files
-
-ethers:     files
-netmasks:   files
-networks:   files
-protocols:  files
-rpc:        files
-services:   files sss
-
-netgroup:   nisplus sss
-
-publickey:  nisplus
-
-automount:  files
-aliases:    files nisplus
-' > /etc/nsswitch.conf
 
 #update sssd
-echo '===================
-      =Configuring SSSD =
-      ==================='
-echo '[sssd]
-domains = viva.local
-config_file_version = 2
-services = nss, pam
+echo '
 
-[domain/viva.local]
+===================
+=  Updating SSSD  =
+===================
+'
+
+echo '
+[sssd]
+services = nss, pam, ssh, autofs
+config_file_version = 2
+domains = viva.local
+
+[domain/VIVA.LOCAL]
 ad_domain = viva.local
 krb5_realm = VIVA.LOCAL
-realmd_tags = manages-system joined-with-adcli 
-cache_credentials = True
 id_provider = ad
-access_provider = ad
-krb5_store_password_if_offline = True
 default_shell = /bin/bash
-ldap_id_mapping = True
 use_fully_qualified_names = false
-fallback_homedir = /net/homes/%u
-access_provider = ad' > /etc/sssd/sssd.conf	
+fallback_homedir = /net/homes/%u' > /etc/sssd/sssd.conf
+
+chmod 600 /etc/sssd/sssd.conf
+chown root:root /etc/sssd/sssd.conf
 
 echo 'Restarting sssd'
 systemctl restart sssd
 systemctl daemon-reload
 
+systemctl status sssd.service
 
 
-#check id
-id fresco |grep -i Lefferts
-
-#Puppet installation
-echo '===================
-      =Installing Puppet=
-      ==================='
-rpm -Uvh https://yum.puppetlabs.com/puppet6/puppet6-release-el-7.noarch.rpm
-yum update -y && yum install -y puppet-agent
-
-echo "
-[main]
-certname = $HOSTNAME.viva.local
-server = puppet.viva.local
-environment = production
-runinterval = 900
-" > /etc/puppetlabs/puppet/puppet.conf
-
-echo '===================
-      = Enabling Puppet =
-      ==================='
-
-/opt/puppetlabs/bin/puppet resource service puppet ensure=running enable=true
 
 
-echo '================================
-      = Setup Complete rebooting now =
-      ================================'
-reboot now
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
