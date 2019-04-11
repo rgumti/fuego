@@ -169,8 +169,32 @@ systemctl daemon-reload
 
 systemctl status sssd.service
 
+#Puppet installation
+echo '===================
+      =Installing Puppet=
+      ==================='
+rpm -Uvh https://yum.puppetlabs.com/puppet6/puppet6-release-el-7.noarch.rpm
+yum update -y && yum install -y puppet-agent
+
+echo "
+[main]
+certname = $HOSTNAME.viva.local
+server = puppet.viva.local
+environment = production
+runinterval = 900
+" > /etc/puppetlabs/puppet/puppet.conf
+
+echo '===================
+      = Enabling Puppet =
+      ==================='
+
+/opt/puppetlabs/bin/puppet resource service puppet ensure=running enable=true
 
 
+echo '================================
+      = Setup Complete rebooting now =
+      ================================'
+reboot now
 
 
 
