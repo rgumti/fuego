@@ -94,12 +94,7 @@ echo '
 
 echo -n '<PASSWORD>' | adcli join viva.local -U Administrator --stdin-password
 
-
-realm list
-
-
-
-
+net ads info
 
 #update krb5.conf
 
