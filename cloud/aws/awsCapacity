@@ -1,0 +1,69 @@
+#!/bin/bash
+#Author Ray Fresco Gumti
+
+
+#Set AutoScaling Group Name
+ASG_Name="C5.18xlarge_Spot-Group"
+ASG_LAUNCH_CONFIG="C5.18xlarge_Spot-config"
+
+
+getCurrent()
+{
+        aws autoscaling describe-auto-scaling-groups --auto-scaling-group-name $ASG_Name --query "AutoScalingGroups[]. $1" --output text
+}
+
+CurrentMinSize=$(getCurrent MinSize)
+CurrentMaxSize=$(getCurrent MaxSize)
+CurrentDesiredCap=$(getCurrent DesiredCapacity)
+
+echo -e "Current Autoscaling Group Minimum Size is : $CurrentMinSize \n
+Current Autoscaling Group Maximum Size is : $CurrentMaxSize \n
+Current Autoscaling Group Desired Capacity is : $CurrentDesiredCap"
+
+read -p "Would you like to update AutoScaling Group Size/Capacity? [yes/no]:  " yn
+
+if [ $yn = "yes" ] || [ $yn = "Yes" ]  ||  [ $yn = "y" ]; then
+        echo ""
+        read -p "Enter Minimum Size: " NewMinSize
+        echo ""
+        read -p "Enter Maximum Size: " NewMaxSize
+        echo ""
+        read -p "Enter Desired Size: " NewDesiredSize
+        echo "."
+        echo "."
+        echo "."
+        echo "."
+        read -p "Please confirm you would like to update the Autoscaling Group as follows:
+
+Minimum Size :     $CurrentMinSize     ==> $NewMinSize
+Maximim Size :     $CurrentMaxSize     ==> $NewMaxSize
+Desired Capacity : $CurrentDesiredCap  ==> $NewDesiredSize
+
+Would you like to Proceed [Yes/No]: " NewSizeYN
+
+        if [ $NewSizeYN = "yes" ] || [ $NewSizeYN = "Yes" ]  ||  [ $NewSizeYN = "y" ]; then
+
+
+                aws autoscaling update-auto-scaling-group --auto-scaling-group-name $ASG_Name --launch-configuration-name $ASG_LAUNCH_CONFIG --min-size $NewMinSize --max-size $NewMaxSize --desired-capacity $NewDesiredSize
+                getNewCurrent()
+                {
+                        aws autoscaling describe-auto-scaling-groups --auto-scaling-group-name $ASG_Name --query "AutoScalingGroups[]. $1" --output text
+                }
+
+                NewCurrentMinSize=$(getNewCurrent MinSize)
+                NewCurrentMaxSize=$(getNewCurrent MaxSize)
+                NewCurrentDesiredCap=$(getNewCurrent DesiredCapacity)
+
+                echo "Minimum Size :     $NewCurrentMinSize
+Maximim Size :     $NewCurrentMaxSize
+Desired Capacity : $NewCurrentDesiredCap"
+                echo ""
+                echo "Capacity has been updated"
+
+        else
+
+                echo "Not Proceeding..Goodbye" && exit 0
+        fi
+else
+        echo "Not updating group. Exiting" && exit 0
+fi
