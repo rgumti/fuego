@@ -1,0 +1,33 @@
+#!/bin/bash
+#Author Ray Fresco Gumti
+
+echo "This tool will START an instance based on the resource Name Tag"
+echo ""
+read -p "Which AWS instance would you like to Start?: " INSTANCE
+
+getInstanceID()
+{
+aws ec2 describe-instances --filters "Name=tag:Name,Values=$1" --query 'Reservations[].Instances[].InstanceId' --output text
+}
+
+INSTANCE_ID=$(getInstanceID $INSTANCE)
+
+echo "$INSTANCE_ID"
+
+
+
+
+#aws ec2 describe-instances --filters "Name=tag:Name,Values=$INSTANCE" --query 'Reservations[].Instances[].InstanceId' --output text
+
+
+
+if [ $(echo $INSTANCE_ID | grep -c  "^i-") -eq 1 ]; then
+	aws ec2 start-instances --instance-ids $INSTANCE_ID
+	aws ec2 describe-instances --instance-ids $INSTANCE_ID --query 'Reservations[].Instances[].State[].Name' --output text
+
+else
+	echo "Instance $INSTANCE does not exist"
+
+#aws ec2 describe-instances --instance-ids `$INSTANCE_ID` --query 'Reservations[].Instances[].State[].Name' --output text
+
+fi
