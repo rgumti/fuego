@@ -1,0 +1,28 @@
+#!/bin/bash
+#Author: Raymond "Fresco" Gumti
+#Version: 1.0
+
+set -eu 
+
+INSTANCE_ID=`GET http://169.254.169.254/latest/meta-data/instance-id`
+
+FARM_STATUS=`sudo -i -u $FARM_USER $FARM_CONTROL QUERY |grep RESULT | cut -d "'" -f2`
+
+CURRENT_JOB=`cat /tmp/currentJob.txt`
+
+RUNNING_JOB=`sudo -u $FARM_USER cat /tmp/farm2.log | grep PROJECT | cut -d "." -f11- | cut -d '/' -f4`
+
+JOB_STATUS=`sudo -u $FARM_USER grep COMPLETED /tmp/farm2.log | cut -d ' ' -f2`
+
+SET_JOB_TAG=`aws ec2 create-tags --resources "$INSTANCE_ID" --tags Key=Job,Value="$CURRENT_JOB"`
+
+
+
+
+if [ "$FARM_STATUS" = "OUT" ] || [ "$JOB_STATUS" = "COMPLETED" ]; then
+        echo "NONE"  > /tmp/currentJob.txt
+else
+        echo "$RUNNING_JOB" > /tmp/currentJob.txt
+fi
+
+$SET_JOB_TAG
