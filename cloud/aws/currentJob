@@ -1,28 +1,40 @@
 #!/bin/bash
-#Author: Raymond "Fresco" Gumti
-#Version: 1.0
-
+#Author: Raymo "papiFresco" Gumti
+#Version: 1.2
 set -eu 
 
-INSTANCE_ID=`GET http://169.254.169.254/latest/meta-data/instance-id`
 
-FARM_STATUS=`sudo -i -u $FARM_USER $FARM_CONTROL QUERY |grep RESULT | cut -d "'" -f2`
+INSTANCE_ID=`GET http://169.254.169.254/latest/meta-data/instance-id`
+VOLUME_ID=`aws ec2 describe-volumes --filters Name=attachment.instance-id,Values="$INSTANCE_ID" --query 'Volumes[*].{ID:VolumeId}' --output text`
+
+FARM_STATUS=`sudo -i -u $FARM_USER $FARMCTL QUERY |grep RESULT | cut -d "'" -f2`
 
 CURRENT_JOB=`cat /tmp/currentJob.txt`
-
 RUNNING_JOB=`sudo -u $FARM_USER cat /tmp/farm2.log | grep PROJECT | cut -d "." -f11- | cut -d '/' -f4`
 
 JOB_STATUS=`sudo -u $FARM_USER grep COMPLETED /tmp/farm2.log | cut -d ' ' -f2`
 
-SET_JOB_TAG=`aws ec2 create-tags --resources "$INSTANCE_ID" --tags Key=Job,Value="$CURRENT_JOB"`
+SET_INSTANCE_JOB_TAG=`aws ec2 create-tags --resources "$INSTANCE_ID" --tags Key=Job,Value="$CURRENT_JOB"`
+SET_VOLUME_JOB_TAG=`aws ec2 create-tags --resources "$VOLUME_ID" --tags Key=Job,Value="$CURRENT_JOB"`
 
 
 
-
+#query farm & job status
 if [ "$FARM_STATUS" = "OUT" ] || [ "$JOB_STATUS" = "COMPLETED" ]; then
         echo "NONE"  > /tmp/currentJob.txt
+
 else
+
         echo "$RUNNING_JOB" > /tmp/currentJob.txt
+
 fi
 
-$SET_JOB_TAG
+#Check if current job changes, if so set the tags. If not do nothing.
+if [ "$RUNNING_JOB" == "$CURRENT_JOB" ]; then
+        $SET_INSTANCE_JOB_TAG && $SET_VOLUME_JOB_TAG
+
+else
+
+        echo 0 > /dev/null
+
+fi
