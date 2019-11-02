@@ -1,40 +1,53 @@
 #!/bin/bash
 #Author: Raymo "papiFresco" Gumti
-#Version: 1.2
+#Version: 1.3
 set -eu 
 
+if ! [ -f /usr/bin/aws ]; then
+        logger -t $(basename $0) "/usr/bin/aws not found. exit 1"
+        exit 1
+fi
 
-INSTANCE_ID=`GET http://169.254.169.254/latest/meta-data/instance-id`
-VOLUME_ID=`aws ec2 describe-volumes --filters Name=attachment.instance-id,Values="$INSTANCE_ID" --query 'Volumes[*].{ID:VolumeId}' --output text`
-
-FARM_STATUS=`sudo -i -u $FARM_USER $FARMCTL QUERY |grep RESULT | cut -d "'" -f2`
-
-CURRENT_JOB=`cat /tmp/currentJob.txt`
-RUNNING_JOB=`sudo -u $FARM_USER cat /tmp/farm2.log | grep PROJECT | cut -d "." -f11- | cut -d '/' -f4`
-
-JOB_STATUS=`sudo -u $FARM_USER grep COMPLETED /tmp/farm2.log | cut -d ' ' -f2`
-
-SET_INSTANCE_JOB_TAG=`aws ec2 create-tags --resources "$INSTANCE_ID" --tags Key=Job,Value="$CURRENT_JOB"`
-SET_VOLUME_JOB_TAG=`aws ec2 create-tags --resources "$VOLUME_ID" --tags Key=Job,Value="$CURRENT_JOB"`
+PAGE_RESULT=$(curl -s  http://FARMURL/status/farm | grep HREF | awk -F \> /$(hostname)/'{gsub("</TD","");print $4}')
+if [ "$PAGE_RESULT" = "Take Out" ]; then
+        FARM_STATUS=IN
+elif [ "$PAGE_RESULT" = "Put In" ]; then
+        FARM_STATUS=OUT
+else
+        logger -t $(basename $0) "http://FARM-URL.com:50555/status/farm UNREACHABLE"
+        exit 1
+fi
 
 
 
-#query farm & job status
+RUNNING_JOB=$(sudo -u $FARM_USER grep PROJECT /tmp/farm2.log | tail -1| cut -d "." -f11- | cut -d '/' -f4)
+
+JOB_STATUS=$(sudo -u $FARM_USER grep COMPLETED /tmp/farm2.log | cut -d ' ' -f2)
+
+#query farm & job status to see whats popping?
 if [ "$FARM_STATUS" = "OUT" ] || [ "$JOB_STATUS" = "COMPLETED" ]; then
+
         echo "NONE"  > /tmp/currentJob.txt
+        logger -t $(basename $0) "currentJob script will not update instance tags :Running Job = `cat /tmp/currentJob.txt`"
 
 else
 
         echo "$RUNNING_JOB" > /tmp/currentJob.txt
 
 fi
+CURRENT_JOB=$(cat /tmp/currentJob.txt)
 
-#Check if current job changes, if so set the tags. If not do nothing.
+#check if current job changes, if so set the tags. If it aint doing shit, then dont do shit.
 if [ "$RUNNING_JOB" == "$CURRENT_JOB" ]; then
-        $SET_INSTANCE_JOB_TAG && $SET_VOLUME_JOB_TAG
 
+        INSTANCE_ID=$(GET http://169.254.169.254/latest/meta-data/instance-id)
+        VOLUME_ID=$(aws ec2 describe-volumes --filters Name=attachment.instance-id,Values="$INSTANCE_ID" --query 'Volumes[*].{ID:VolumeId}' --output text)
+        SET_JOB_TAGS=$(aws ec2 create-tags --resources "$INSTANCE_ID" "$VOLUME_ID" --tags Key=Job,Value="$CURRENT_JOB")
+
+        $SET_JOB_TAGS
+        logger -t $(basename $0) "Current render job is $RUNNING_JOB"
 else
 
         echo 0 > /dev/null
-
+        logger -t $(basename $0) "currentJob script will not instance tags :Running Job = $RUNNING_JOB"
 fi
