@@ -3,7 +3,7 @@
 #Version 0.1.1
 
 realName=$(host `hostname -i`  | cut -d' ' -f 5 |sed 's/.$//')
-ipAddress=(`hostname -i`)
+ipAddress=$(hostname -i)
 
 echo '
 =====================================
