@@ -38,7 +38,7 @@ else
 
         else
 
-                logger -t $(basename $0) echo "KSM NOT AVAILABLE"
+                logger -t $(basename $0) echo "Kernel Same-Page Merging NOT AVAILABLE"
                 exit 0
 
         fi
