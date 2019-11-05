@@ -3,31 +3,41 @@
 
 set -eu
 
-if ! [ -f /etc/netdata/netdata.conf ]; then
+if [ -f /etc/netdata/netdata.conf ]; then
         logger -t $(basename $0) "/etc/netdata/netdata.conf found. Netdata already installed"
+        exit 1
 else
         #download the installer
+
         wget -qP /tmp/ https://my-netdata.io/kickstart.sh
         #make it executable
         chmod +x /tmp/kickstart.sh
+
         #run the installer without requiring user interaction
         /tmp/kickstart.sh --non-interactive
-        logger -t $(basename $0) "Netdata installed"
 
+        #log that badboi
+        logger -t $(basename $0) echo "NETDATA INSTALLED and can be reached at http://`hostname -f`:19999"
 
-#check if KSM is available. If its available enable it, if not don't.
-KSM_CHECK=$(grep KSM /boot/config-`uname -r`)
+        #enable netdata
+        systemctl enable netdata
+        logger -t $(basename $0) "Netdata enabled on boot via systemctl"
+        
+        #check if KSM is available. If its available enable it, if not don't.
+        KSM_CHECK=$(grep KSM /boot/config-`uname -r`)
 
-if [ "$KSM_CHECK" == 'CONFIG_KSM=y' ]; then
+        if [ "$KSM_CHECK" = 'CONFIG_KSM=y' ]; then
 
-        echo 1 >/sys/kernel/mm/ksm/run
-        echo 1000 >/sys/kernel/mm/ksm/sleep_millisecs
-        logger -t $(basename $0) "Kernel Same-Page Merging Enabled"
-        exit 0
+                echo 1 >/sys/kernel/mm/ksm/run
+                echo 1000 >/sys/kernel/mm/ksm/sleep_millisecs
+                logger -t $(basename $0) "Kernel Same-Page Merging Enabled"
+                exit 0
 
-else
+        else
 
-        echo "KSM NOT AVAILABLE"
-        exit 0
+                logger -t $(basename $0) echo "KSM NOT AVAILABLE"
+                exit 0
 
+        fi
+        
 fi
