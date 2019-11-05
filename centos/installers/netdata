@@ -94,7 +94,7 @@ if [ $NVIDIA_STATUS = "Not_Empty" ] && (( $NVIDIA_USED > 0 )) && ! [ -f /etc/net
 	#restart service to start polling nvidia card
 	systemctl restart netdata
 else
-	logger -t $(basename $0) "Nvidia Netdata Plugin already installed"
+	logger -t $(basename $0) "Nvidia Netdata Plugin already installedv or no Nvidia graphics card present"
 	exit 0
 	
 fi
