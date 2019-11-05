@@ -7,14 +7,17 @@ if [ -f /etc/netdata/netdata.conf ]; then
         logger -t $(basename $0) "/etc/netdata/netdata.conf found. Netdata already installed"
         exit 1
 else
-        #download the installer
+        #make a working directory
+        mkdir /tmp/netdata
 
-        wget -qP /tmp/ https://my-netdata.io/kickstart.sh
+        #download the installer
+        wget -qP /tmp/netdata https://my-netdata.io/kickstart.sh
+
         #make it executable
-        chmod +x /tmp/kickstart.sh
+        chmod +x /tmp/netdata/kickstart.sh
 
         #run the installer without requiring user interaction
-        /tmp/kickstart.sh --non-interactive
+        /tmp/netdata/kickstart.sh --non-interactive
 
         #log that badboi
         logger -t $(basename $0) echo "NETDATA INSTALLED and can be reached at http://`hostname -f`:19999"
@@ -22,7 +25,7 @@ else
         #enable netdata
         systemctl enable netdata
         logger -t $(basename $0) "Netdata enabled on boot via systemctl"
-        
+
         #check if KSM is available. If its available enable it, if not don't.
         KSM_CHECK=$(grep KSM /boot/config-`uname -r`)
 
@@ -39,5 +42,8 @@ else
                 exit 0
 
         fi
-        
+
+        #clean up clean up 
+        rm -rf /tmp/netdata
+
 fi
