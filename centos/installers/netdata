@@ -45,7 +45,8 @@ else
 fi
 
 NVIDIA_USED=$(lsmod | awk '$1 == "nvidia"' |awk '{print $3}')
-if (( $NVIDIA_USED > 0 )) && ! [ -f /etc/netdata/python.d/nv.conf ] ; then
+NVIDIA_STATUS=$([[ ! -z "$NVIDIA_USED" ]] && echo "Not_Empty" || echo "Empty")
+if [ $NVIDIA_STATUS = "Not_Empty" ] && (( $NVIDIA_USED > 0 )) && ! [ -f /etc/netdata/python.d/nv.conf ] ; then
 	logger -t $(basename $0) "Installing Netdata Nvidia Plugin"
 
 	#make working directory
