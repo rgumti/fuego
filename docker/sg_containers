@@ -3,7 +3,6 @@
 #Description: This script will start the shotgun application containers (production, staging & kibana)
 #Version 0.2
 set -eu
-echo 'TESTING'
 show_usage() {
 	echo >&2 "Usage $(basename "$0") (start | stop | status | network_status)
 start - will create & start all containers (if containers are running it will apply any changes in container's docker-compose.yml)
