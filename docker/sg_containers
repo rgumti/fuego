@@ -35,7 +35,7 @@ case "$1" in
 				docker-compose -f /opt/shotgun/enterprise-unified-logging/docker-compose.yml "$@"
 			}
 			echo 'Starting Kibana Containers...'
-			sg_kibana_containers "$ACTION" "$DAEMON" >&2
+			sg_kibana_containers "$ACTION" "$DAEMON"
 			logger -t "$(basename "$0")" "starting shotgun kibana containers"
 			
 		else 
@@ -44,12 +44,12 @@ case "$1" in
 	
 		#Start Staging containers
 		echo 'Starting Shotgun Staging Containers...'
-		sg_staging_containers "$ACTION" "$DAEMON" >&2
+		sg_staging_containers "$ACTION" "$DAEMON"
 		logger -t "$(basename "$0")" "starting shotgun staging containers"
 
 		#Start Production containers
 		echo 'Starting Shotgun Production Containers...'
-	 	sg_prod_containers "$ACTION" "$DAEMON" >&2
+	 	sg_prod_containers "$ACTION" "$DAEMON"
 		logger -t "$(basename "$0")" "starting shotgun production containers"
 		exit 0
 		
