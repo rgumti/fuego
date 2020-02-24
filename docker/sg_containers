@@ -1,0 +1,109 @@
+#!/bin/bash
+#Author: paipFresco
+#Description: This script will start the shotgun application containers (production, staging & kibana)
+#Version 0.2
+set -eu
+echo 'TESTING'
+show_usage() {
+	echo >&2 "Usage $(basename "$0") (start | stop | status | network_status)
+start - will create & start all containers (if containers are running it will apply any changes in container's docker-compose.yml)
+stop  - will stop & remove all containers 
+status - will run 'docker container ls' to display running containers 
+network_status - will run 'docker network ls' to display networks"
+}
+
+sg_prod_containers()
+{
+	docker-compose -f /opt/shotgun/production/docker-compose.yml "$@"
+}
+
+sg_staging_containers()
+{
+        docker-compose -f /opt/shotgun/staging/docker-compose.yml "$@"
+}
+
+
+
+case "$1" in
+	start)
+	ACTION="up"
+	DAEMON="-d"
+	 if [ -f /bin/docker ]; then
+		#The production and staginge containers need to log to kibana so me must ensure its up first (if it exists.)
+	 	if [ -d "/opt/shotgun/enterprise-unified-logging" ]; then
+			sg_kibana_containers()
+			{
+				docker-compose -f /opt/shotgun/enterprise-unified-logging/docker-compose.yml "$@"
+			}
+			echo 'Starting Kibana Containers...'
+			sg_kibana_containers "$ACTION" "$DAEMON" >&2
+			logger -t "$(basename "$0")" "starting shotgun kibana containers"
+			
+		else 
+			echo "Skipping Kibana Containers on this node"
+		fi
+	
+		#Start Staging containers
+		echo 'Starting Shotgun Staging Containers...'
+		sg_staging_containers "$ACTION" "$DAEMON" >&2
+		logger -t "$(basename "$0")" "starting shotgun staging containers"
+
+		#Start Production containers
+		echo 'Starting Shotgun Production Containers...'
+	 	sg_prod_containers "$ACTION" "$DAEMON" >&2
+		logger -t "$(basename "$0")" "starting shotgun production containers"
+		exit 0
+		
+	else
+			echo "Is docker installed?"
+			exit 1
+		fi
+		;;
+        stop)
+         ACTION='down'
+         if [ -f /bin/docker ]; then
+                #The production and staginge containers need to log to kibana so me must ensure its up first (if it exists.
+                if [ -d "/opt/shotgun/enterprise-unified-logging" ]; then
+                	sg_kibana_containers()
+                	{
+                        	docker-compose -f /opt/shotgun/enterprise-unified-logging/docker-compose.yml "$@"
+                	}
+                echo 'Stopping Kibana Containers...'
+		sg_kibana_containers "${ACTION}"
+		logger -t "$(basename "$0")" "stopping shotgun production containers"
+                else
+                        echo "Skipping Kibana Containers on this node"
+                fi
+
+	        #Stop Staging containers
+        	echo 'Stopping Shotgun Staging Containers...'
+	        sg_staging_containers "${ACTION}"
+		logger -t "$(basename "$0")" "stopping staging production containers"
+
+        	#Start Production containers
+	        echo 'Stopping Shotgun Production Containers...'
+       		sg_prod_containers "${ACTION}"
+		logger -t "$(basename "$0")" "stopping shotgun production containers"
+	        exit 0
+        
+        else
+        	echo "Is docker installed?"
+	        exit 1
+        fi
+	;;
+
+	status)
+		echo 'Showing the output of "docker container ls"'
+		docker container ls
+	;;
+	
+	network_status)
+		echo 'Showing the output of "docker network ls"'
+		docker network ls
+	;;
+        *)
+	  show_usage
+	  exit 1	
+	;;
+
+	esac
