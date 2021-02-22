@@ -13,11 +13,13 @@ systemctl restart sshd
 
 # update
 apt-get update -y
-logger -t "$(basename "$0")" "app-get update complete"
+logger -t "$(basename "$0")" "apt-get update complete"
 
 # upgrade
 apt-get upgrade -y
-logger -t "$(basename "$0")" "app-get upgrade complete"
+logger -t "$(basename "$0")" "apt-get upgrade complete"
+
+
 
 # install packages
 apt-get install -y finger vim unzip net-tools libcurl4 openssl
@@ -45,19 +47,21 @@ adduser --disabled-password --gecos "" minecraft
 logger -t "$(basename "$0")" "User minecraft added"
 
 # make workspace
-mkdir /bedrock_server
-chmod 777 /bedrock_server
-cd /bedrock_server || logger -t "$(basename "$0")" "/bedrock_server folder not created"
-logger -t "$(basename "$0")" "/bedrock_server folder created"
+mkdir /bedrock
+chmod 777 /bedrock
+cd /bedrock || logger -t "$(basename "$0")" "/bedrock folder not created"
+logger -t "$(basename "$0")" "/bedrock folder created"
 
 # download bedrock server from azure:
 wget $BEDROCK_URL
 logger -t "$(basename "$0")" "bedrock package downloaded"
 # unzip server package
-unzip $BEDROCK_PACKAGE -d /bedrock_server/
-logger -t "$(basename "$0")" "bedrock package unziped to /bedrock_server"
+unzip $BEDROCK_PACKAGE -d /bedrock/
+logger -t "$(basename "$0")" "bedrock package unziped to /bedrock"
 
 #become minecraft user and start server
 su - minecraft
-cd /bedrock_server
+cd /bedrock
 logger -t "$(basename "$0")" "Starting Minecraft Bedrock Server"
+LD_LIBRARY_PATH=/bedrock
+/bedrock/bedrock_server
